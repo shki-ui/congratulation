@@ -6,11 +6,14 @@
     <script src="mindar-image-aframe.prod.js"></script>
     <style>
         #tap-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); color: white; display: flex;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            color: white; display: flex;
             justify-content: center; align-items: center;
             z-index: 9999; font-family: sans-serif; font-size: 1.2rem;
-            text-align: center; padding: 20px; cursor: pointer;
+            text-align: center; padding: 20px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -23,81 +26,86 @@
             <video id="video0" src="video0.mp4" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
         </a-assets>
 
+        
+
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        <a-entity mindar-image-target="targetIndex: 0" id="marker0"></a-entity>
-       
+        <a-entity mindar-image-target="targetIndex: 0">
+            <a-video src="#video0" width="1" height="0.5625" position="0 0 0"
+                     material="transparent: true; opacity: 0"
+                     animation="property: material.opacity; from: 0; to: 1; dur: 1000; startEvents: fadein; easing: easeInOutQuad">
+            </a-video>
+        </a-entity>
 
-        <a-video id="plane0" src="#video0" width="1" height="0.5625" position="0 0 0" visible="false"></a-video>
-        
 
     </a-scene>
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
+            const targetEntities = document.querySelectorAll('[mindar-image-target]');
             const overlay = document.getElementById('tap-overlay');
-            
-            
-            const arItems = [
-                { marker: document.querySelector('#marker0'), plane: document.querySelector('#plane0'), asset: document.querySelector('#video0'), isTracking: false, wasFound: false },
-                { marker: document.querySelector('#marker1'), plane: document.querySelector('#plane1'), asset: document.querySelector('#video1'), isTracking: false, wasFound: false }
-            ];
+            const activeMarkers = {};
 
-            arItems.forEach((item, index) => {
-                if (!item.marker || !item.asset) return;
-
-                // Действие при нахождении картинки
-                item.marker.addEventListener("targetFound", () => {
-                    console.log(`Картинка ${index} найдена`);
-                    item.isTracking = true;
-
-                    // Если маркер найден впервые - включаем видимость и запускаем плавное появление
-                    if (!item.wasFound) {
-                        item.wasFound = true;
-                        item.plane.setAttribute('visible', 'true');
-                        item.plane.setAttribute('animation', 'property: material.opacity; from: 0; to: 1; dur: 800; easing: easeInOutQuad');
-                    }
-
-                    item.asset.muted = false;
-                    item.asset.play().catch(e => console.log(e));
-                });
-
+            targetEntities.forEach((el, index) => {
+                const markerId = index;
+                activeMarkers[markerId] = false; 
                 
-                item.marker.addEventListener("targetLost", () => {
-                    console.log(`Картинка ${index} потеряна. Видео заморожено на месте.`);
-                    item.isTracking = false; 
-                    
-                });
+                const videoElement = el.querySelector('a-video');
+                if (!videoElement) return;
+                
+                const videoId = videoElement.getAttribute('src');
+                const videoAsset = document.querySelector(videoId);
+
+                if (videoAsset) {
+                    el.addEventListener("targetFound", () => {
+                        console.log(`Маркер №${markerId} найден`);
+                        activeMarkers[markerId] = true;
+                        
+                        // Запускаем анимацию появления
+                        videoElement.emit('fadein');
+                        
+                        videoAsset.play().catch(e => console.log("Ожидание клика..."));
+                    });
+
+                    el.addEventListener("targetLost", () => {
+                        console.log(`Маркер №${markerId} потерян`);
+                        activeMarkers[markerId] = false;
+                        
+                        // Мгновенно скрываем видео, чтобы при новом наведении анимация сработала корректно
+                        videoElement.setAttribute('material', 'opacity', '0');
+                        
+                        videoAsset.pause();
+                    });
+                }
             });
 
-            
-            function syncPositions() {
-                arItems.forEach(item => {
-                    
-                    if (item.isTracking && item.marker.object3D.visible) {
-                        item.plane.object3D.position.copy(item.marker.object3D.position);
-                        item.plane.object3D.rotation.copy(item.marker.object3D.rotation);
-                        item.plane.object3D.scale.copy(item.marker.object3D.scale);
-                    }
-                });
-                requestAnimationFrame(syncPositions);
-            }
-            syncPositions(); 
-
-       
             if (overlay) {
                 overlay.addEventListener('click', () => {
-                    arItems.forEach(item => {
-                        if (item.asset) {
-                            item.asset.muted = true; 
-                            item.asset.play().then(() => {
-                                
-                                item.asset.pause();
-                                item.asset.currentTime = 0;
-                            }).catch(e => console.log(e));
+                    targetEntities.forEach((el, index) => {
+                        const markerId = index;
+                        const videoElement = el.querySelector('a-video');
+                        if (!videoElement) return;
+                        
+                        const videoId = videoElement.getAttribute('src');
+                        const videoAsset = document.querySelector(videoId);
+                        
+                        if (videoAsset) {
+                            videoAsset.muted = false; 
+                            
+                            const playPromise = videoAsset.play();
+                            if (playPromise !== undefined) {
+                                playPromise.then(() => {
+                                    if (!activeMarkers[markerId]) {
+                                        videoAsset.pause();
+                                        videoAsset.currentTime = 0;
+                                    }
+                                }).catch(e => console.log("Автовоспроизведение прервано:", e));
+                            }
                         }
                     });
+
                     overlay.style.display = 'none';
+                    console.log("Видео-система со звуком готова");
                 }, {once: true});
             }
         });

@@ -16,6 +16,26 @@
             cursor: pointer;
         }
     </style>
+    
+    <script>
+        // Специальный компонент A-Frame, который запрещает движку прятать видео
+        AFRAME.registerComponent('freeze-on-lost', {
+            init: function () {
+                this.keepVisible = false;
+                // Как только маркер найден хотя бы раз, включаем режим удержания
+                this.el.addEventListener('targetFound', () => {
+                    this.keepVisible = true;
+                });
+            },
+            // Функция tick работает 60 раз в секунду (каждый кадр)
+            tick: function () {
+                if (this.keepVisible) {
+                    // MindAR пытается скрыть объект, но мы принудительно оставляем его видимым
+                    this.el.object3D.visible = true;
+                }
+            }
+        });
+    </script>
 </head>
 <body>
     <div id="tap-overlay">Нажмите на экран,<br>чтобы оживить картинку</div>
@@ -29,16 +49,15 @@
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        <!-- Добавлен атрибут stay-on-screen -->
-        <a-entity mindar-image-target="targetIndex: 0" stay-on-screen>
+        <!-- Добавили наш новый компонент freeze-on-lost к обоим маркерам -->
+        <a-entity mindar-image-target="targetIndex: 0" freeze-on-lost>
             <a-video src="#video0" width="1" height="0.5625" position="0 0 0"
                      material="transparent: true; opacity: 0"
                      animation="property: material.opacity; from: 0; to: 1; dur: 1000; startEvents: fadein; easing: easeInOutQuad">
             </a-video>
         </a-entity>
 
-        <!-- Добавлен атрибут stay-on-screen -->
-        <a-entity mindar-image-target="targetIndex: 1" stay-on-screen>
+        <a-entity mindar-image-target="targetIndex: 1" freeze-on-lost>
             <a-video src="#video1" width="1" height="0.5625" position="0 0 0"
                      material="transparent: true; opacity: 0"
                      animation="property: material.opacity; from: 0; to: 1; dur: 1000; startEvents: fadein; easing: easeInOutQuad">
@@ -48,26 +67,10 @@
     </a-scene>
 
     <script>
-        // Наш кастомный компонент: он перехватывает скрытие от MindAR
-        AFRAME.registerComponent('stay-on-screen', {
-            init: function () {
-                this.isFound = false;
-                // Как только маркер найден хотя бы раз — активируем защиту от скрытия
-                this.el.addEventListener('targetFound', () => {
-                    this.isFound = true;
-                });
-            },
-            tick: function () {
-                // Каждый кадр проверяем: если видео уже появлялось, запрещаем его прятать
-                if (this.isFound) {
-                    this.el.object3D.visible = true;
-                }
-            }
-        });
-
         document.addEventListener("DOMContentLoaded", () => {
             const targetEntities = document.querySelectorAll('[mindar-image-target]');
             const overlay = document.getElementById('tap-overlay');
+            
             const isActivated = {};
 
             targetEntities.forEach((el, index) => {
@@ -85,14 +88,14 @@
                         isActivated[index] = true;
                         
                         videoElement.emit('fadein');
-                        
                         videoAsset.muted = false;
-                        videoAsset.play().catch(e => console.log("Ожидание клика..."));
+                        videoAsset.play().catch(e => console.log(e));
                     });
 
+                    // Теперь нам здесь не нужно ничего писать.
+                    // Компонент freeze-on-lost сам удержит картинку на экране!
                     el.addEventListener("targetLost", () => {
-                        console.log(`Маркер №${index} потерян, картинка заморожена`);
-                        // Пауза и скрытие удалены. Всю работу теперь делает компонент stay-on-screen.
+                        console.log(`Маркер №${index} потерян, но картинка и звук остаются`);
                     });
                 }
             });
@@ -117,13 +120,12 @@
                                         videoAsset.currentTime = 0;
                                     }
                                     videoAsset.muted = false; 
-                                }).catch(e => console.log("Автовоспроизведение прервано:", e));
+                                }).catch(e => console.log(e));
                             }
                         }
                     });
 
                     overlay.style.display = 'none';
-                    console.log("Видео-система готова");
                 }, {once: true});
             }
         });

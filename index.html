@@ -52,11 +52,12 @@
         document.addEventListener("DOMContentLoaded", () => {
             const targetEntities = document.querySelectorAll('[mindar-image-target]');
             const overlay = document.getElementById('tap-overlay');
-            const activeMarkers = {};
+            
+            // Флаг: было ли видео уже запущено маркером
+            const isActivated = {};
 
             targetEntities.forEach((el, index) => {
-                const markerId = index;
-                activeMarkers[markerId] = false; 
+                isActivated[index] = false; 
                 
                 const videoElement = el.querySelector('a-video');
                 if (!videoElement) return;
@@ -66,25 +67,22 @@
 
                 if (videoAsset) {
                     el.addEventListener("targetFound", () => {
-                        console.log(`Маркер №${markerId} найден`);
-                        activeMarkers[markerId] = true;
+                        console.log(`Маркер №${index} найден`);
+                        isActivated[index] = true;
                         
-                        // Запускаем анимацию появления
+                        // Запускаем анимацию плавного появления
                         videoElement.emit('fadein');
                         
+                        // Включаем видео
+                        videoAsset.muted = false;
                         videoAsset.play().catch(e => console.log("Ожидание клика..."));
                     });
 
                     el.addEventListener("targetLost", () => {
-                        console.log(`Маркер №${markerId} потерян, но видео остается`);
-                        activeMarkers[markerId] = false;
-                        
-                        // Принудительно отменяем стандартное скрытие от MindAR, 
-                        // чтобы видео оставалось на экране и продолжало играть
+                        console.log(`Маркер №${index} потерян`);
+                        // Отменяем стандартное скрытие от MindAR.
+                        // Видео останется висеть на экране и продолжит играть со звуком.
                         el.object3D.visible = true;
-                        
-                        // Мы удалили videoElement.setAttribute('material', 'opacity', '0');
-                        // Мы удалили videoAsset.pause();
                     });
                 }
             });
@@ -92,7 +90,6 @@
             if (overlay) {
                 overlay.addEventListener('click', () => {
                     targetEntities.forEach((el, index) => {
-                        const markerId = index;
                         const videoElement = el.querySelector('a-video');
                         if (!videoElement) return;
                         
@@ -100,22 +97,26 @@
                         const videoAsset = document.querySelector(videoId);
                         
                         if (videoAsset) {
-                            videoAsset.muted = false; 
+                            // Чтобы при разблокировке не было секундного "всплеска" звука
+                            videoAsset.muted = true; 
                             
                             const playPromise = videoAsset.play();
                             if (playPromise !== undefined) {
                                 playPromise.then(() => {
-                                    if (!activeMarkers[markerId]) {
+                                    // Ставим на паузу ТОЛЬКО если маркер еще ни разу не находили
+                                    if (!isActivated[index]) {
                                         videoAsset.pause();
                                         videoAsset.currentTime = 0;
                                     }
+                                    // Разрешаем звук для будущих воспроизведений
+                                    videoAsset.muted = false; 
                                 }).catch(e => console.log("Автовоспроизведение прервано:", e));
                             }
                         }
                     });
 
                     overlay.style.display = 'none';
-                    console.log("Видео-система со звуком готова");
+                    console.log("Видео-система готова, ждем наведения на маркер");
                 }, {once: true});
             }
         });

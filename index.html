@@ -6,58 +6,65 @@
     <script src="mindar-image-aframe.prod.js"></script>
 </head>
 <body>
-    
     <a-scene mindar-image="imageTargetSrc: targets.mind; filterMinCF: 0.0001; filterBeta: 0.001;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <video id="video0" src="video0.mp4" loop="true" crossorigin="anonymous" muted playsinline></video>
+            <!-- Удалили атрибут muted у всех видео, чтобы появился звук -->
+            <video id="video0" src="video0.mp4" loop="true" crossorigin="anonymous" playsinline></video>
+            
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-video src="#video0" width="1.0" height="0.8" position="0 0 0" material="transparent: true; opacity: 0;"></a-video>
+            <!-- Возвращен формат 4:5 (width="0.8" height="1.0") -->
+            <a-video src="#video0" width="1.6" height="0.9" position="0 0 0" material="transparent: true; opacity: 0;"></a-video>
         </a-entity>
 
+       
     </a-scene>
 
     <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const targetEntities = document.querySelectorAll('[mindar-image-target]');
+        document.addEventListener("DOMContentLoaded", () => {
+            const targetEntities = document.querySelectorAll('[mindar-image-target]');
 
-        targetEntities.forEach((el) => {
-            const targetSettings = el.getAttribute('mindar-image-target');
-            const index = targetSettings.match(/\d+/)[0];
-            
-            const videoElement = el.querySelector('a-video');
-            const videoAsset = document.querySelector(videoElement.getAttribute('src'));
+            targetEntities.forEach((el) => {
+                const targetSettings = el.getAttribute('mindar-image-target');
+                const index = targetSettings.match(/\d+/)[0];
+                
+                const videoElement = el.querySelector('a-video');
+                const videoAsset = document.querySelector(videoElement.getAttribute('src'));
 
-            el.addEventListener("targetFound", () => {
-                console.log(`Маркер №${index} найден`);
-                videoAsset.play();
+                el.addEventListener("targetFound", () => {
+                    console.log(`Маркер №${index} найден`);
+                    videoAsset.play();
 
-                videoElement.setAttribute('animation', {
-                    property: 'material.opacity',
-                    to: '1',
-                    dur: 600,
-                    easing: 'easeInOutQuad'
+                    // Плавное появление (fade-in)
+                    videoElement.setAttribute('animation', {
+                        property: 'material.opacity',
+                        to: '1',
+                        dur: 600,
+                        easing: 'easeInOutQuad'
+                    });
+                });
+
+                el.addEventListener("targetLost", () => {
+                    console.log(`Маркер №${index} потерян, но видео остается на экране`);
+                    // Принудительно отменяем стандартное скрытие от MindAR
+                    el.object3D.visible = true;
                 });
             });
 
-            el.addEventListener("targetLost", () => {
-                console.log(`Маркер №${index} потерян, но видео продолжает воспроизведение`);
-            });
+            // Клик по экрану для разблокировки звука и видео в мобильных браузерах
+            document.body.addEventListener('click', () => {
+                const allVideos = document.querySelectorAll('video');
+                allVideos.forEach(v => {
+                    v.play();
+                    v.pause();
+                });
+                console.log("Видео-система и звук готовы");
+            }, {once: true});
         });
-
-        document.body.addEventListener('click', () => {
-            const allVideos = document.querySelectorAll('video');
-            allVideos.forEach(v => {
-                v.play();
-                v.pause();
-            });
-            console.log("Видео-система готова");
-        }, {once: true});
-    });
-</script>
+    </script>
 </body>
 </html>

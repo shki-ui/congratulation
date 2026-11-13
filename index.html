@@ -2,94 +2,122 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Ваши локальные библиотеки -->
     <script src="aframe.min.js"></script>
     <script src="mindar-image-aframe.prod.js"></script>
-    
     <style>
-        #start-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9); color: white; z-index: 9999;
-            display: flex; justify-content: center; align-items: center;
-            font-family: sans-serif; font-size: 20px; cursor: pointer; text-align: center;
+        #tap-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            color: white; display: flex;
+            justify-content: center; align-items: center;
+            z-index: 9999; font-family: sans-serif; font-size: 1.2rem;
+            text-align: center; padding: 20px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <div id="start-overlay">
-        Нажмите на экран для запуска AR<br>и включения звука
-    </div>
+    <div id="tap-overlay">Нажмите на экран,<br>чтобы оживить картинку</div>
 
-    <!-- Настройки сцены. Убедитесь, что файл называется строго targets.mind (маленькими буквами) -->
     <a-scene mindar-image="imageTargetSrc: targets.mind; filterMinCF: 0.0001; filterBeta: 0.001;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
         
         <a-assets>
-            <!-- Убран crossorigin, добавлены обязательные playsinline и webkit-playsinline -->
-            <!-- Убедитесь, что файл называется строго video0.mp4 (маленькими буквами) -->
-            <video id="video0" src="video0.mp4" loop="true" playsinline webkit-playsinline></video>
+            <video id="video0" src="video0.mp4" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
+        </a-assets>
+
+        <a-assets>
+            <video id="video1" src="video1.mp4" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
         <a-entity mindar-image-target="targetIndex: 0">
-            <!-- Видео-плоскость. Изначально прозрачная (opacity: 0) -->
-            <a-video src="#video0" width="1.6" height="0.9" position="0 0 0" material="transparent: true; opacity: 0;"></a-video>
+            <a-video src="#video0" width="1" height="0.5625" position="0 0 0"
+                     material="transparent: true; opacity: 0"
+                     animation="property: material.opacity; from: 0; to: 1; dur: 1000; startEvents: fadein; easing: easeInOutQuad">
+            </a-video>
         </a-entity>
-       
+
+        <a-entity mindar-image-target="targetIndex: 1">
+            <a-video src="#video1" width="1" height="0.5625" position="0 0 0"
+                     material="transparent: true; opacity: 0"
+                     animation="property: material.opacity; from: 0; to: 1; dur: 1000; startEvents: fadein; easing: easeInOutQuad">
+            </a-video>
+        </a-entity>
+
     </a-scene>
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            const startOverlay = document.getElementById('start-overlay');
-            let isVideoUnlocked = false;
-
-            // 1. Клик по стартовому экрану разблокирует медиа
-            startOverlay.addEventListener('click', () => {
-                const allVideos = document.querySelectorAll('video');
-                allVideos.forEach(v => {
-                    v.play().then(() => {
-                        v.pause();
-                    }).catch(e => console.log("Ожидание маркера...", e));
-                });
-                isVideoUnlocked = true;
-                startOverlay.style.display = 'none';
-            });
-
             const targetEntities = document.querySelectorAll('[mindar-image-target]');
+            const overlay = document.getElementById('tap-overlay');
+            const activeMarkers = {};
 
-            targetEntities.forEach((el) => {
+            targetEntities.forEach((el, index) => {
+                const markerId = index;
+                activeMarkers[markerId] = false; 
+                
                 const videoElement = el.querySelector('a-video');
-                const videoAsset = document.querySelector(videoElement.getAttribute('src'));
+                if (!videoElement) return;
+                
+                const videoId = videoElement.getAttribute('src');
+                const videoAsset = document.querySelector(videoId);
 
-                // 2. Действие при наведении камеры на маркер
-                el.addEventListener("targetFound", () => {
-                    if (isVideoUnlocked) {
-                        videoAsset.play();
+                if (videoAsset) {
+                    el.addEventListener("targetFound", () => {
+                        console.log(`Маркер №${markerId} найден`);
+                        activeMarkers[markerId] = true;
                         
-                        // Анимация плавного появления видео
-                        videoElement.setAttribute('animation', {
-                            property: 'material.opacity',
-                            to: '1',
-                            dur: 600,
-                            easing: 'easeInOutQuad'
-                        });
-                    }
-                });
-
-                // 3. Действие при потере маркера из вида
-                el.addEventListener("targetLost", () => {
-                    // Ставим видео на паузу, чтобы звук не шел фоном
-                    videoAsset.pause();
-                    
-                    // Убираем прозрачность, чтобы видео снова плавно появилось при следующем наведении
-                    videoElement.setAttribute('animation', {
-                        property: 'material.opacity',
-                        to: '0',
-                        dur: 300,
-                        easing: 'easeInOutQuad'
+                        // Запускаем анимацию появления
+                        videoElement.emit('fadein');
+                        
+                        videoAsset.play().catch(e => console.log("Ожидание клика..."));
                     });
-                });
+
+                    el.addEventListener("targetLost", () => {
+                        console.log(`Маркер №${markerId} потерян, но видео остается`);
+                        activeMarkers[markerId] = false;
+                        
+                        // Принудительно отменяем стандартное скрытие от MindAR, 
+                        // чтобы видео оставалось на экране и продолжало играть
+                        el.object3D.visible = true;
+                        
+                        // Мы удалили videoElement.setAttribute('material', 'opacity', '0');
+                        // Мы удалили videoAsset.pause();
+                    });
+                }
             });
+
+            if (overlay) {
+                overlay.addEventListener('click', () => {
+                    targetEntities.forEach((el, index) => {
+                        const markerId = index;
+                        const videoElement = el.querySelector('a-video');
+                        if (!videoElement) return;
+                        
+                        const videoId = videoElement.getAttribute('src');
+                        const videoAsset = document.querySelector(videoId);
+                        
+                        if (videoAsset) {
+                            videoAsset.muted = false; 
+                            
+                            const playPromise = videoAsset.play();
+                            if (playPromise !== undefined) {
+                                playPromise.then(() => {
+                                    if (!activeMarkers[markerId]) {
+                                        videoAsset.pause();
+                                        videoAsset.currentTime = 0;
+                                    }
+                                }).catch(e => console.log("Автовоспроизведение прервано:", e));
+                            }
+                        }
+                    });
+
+                    overlay.style.display = 'none';
+                    console.log("Видео-система со звуком готова");
+                }, {once: true});
+            }
         });
     </script>
 </body>

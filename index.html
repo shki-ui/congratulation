@@ -22,49 +22,42 @@
     </a-scene>
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const targetEntities = document.querySelectorAll('[mindar-image-target]');
+    document.addEventListener("DOMContentLoaded", () => {
+        const targetEntities = document.querySelectorAll('[mindar-image-target]');
 
-            targetEntities.forEach((el) => {
-                const targetSettings = el.getAttribute('mindar-image-target');
-                const index = targetSettings.match(/\d+/)[0];
-                
-                const videoElement = el.querySelector('a-video');
-                const videoAsset = document.querySelector(videoElement.getAttribute('src'));
+        targetEntities.forEach((el) => {
+            const targetSettings = el.getAttribute('mindar-image-target');
+            const index = targetSettings.match(/\d+/)[0];
+            
+            const videoElement = el.querySelector('a-video');
+            const videoAsset = document.querySelector(videoElement.getAttribute('src'));
 
-                el.addEventListener("targetFound", () => {
-                    console.log(`Маркер №${index} найден`);
-                    videoAsset.play();
+            el.addEventListener("targetFound", () => {
+                console.log(`Маркер №${index} найден`);
+                videoAsset.play();
 
-                    
-                    videoElement.setAttribute('animation', {
-                        property: 'material.opacity',
-                        to: '1',
-                        dur: 600, 
-                        easing: 'easeInOutQuad'
-                    });
-                });
-
-                el.addEventListener("targetLost", () => {
-                    console.log(`Маркер №${index} потерян`);
-                    videoAsset.pause();
-
-                    
-                    videoElement.setAttribute('material', 'opacity', 0);
-                
-                    videoElement.removeAttribute('animation');
+                videoElement.setAttribute('animation', {
+                    property: 'material.opacity',
+                    to: '1',
+                    dur: 600,
+                    easing: 'easeInOutQuad'
                 });
             });
 
-            document.body.addEventListener('click', () => {
-                const allVideos = document.querySelectorAll('video');
-                allVideos.forEach(v => {
-                    v.play();
-                    v.pause();
-                });
-                console.log("Видео-система готова");
-            }, {once: true});
+            el.addEventListener("targetLost", () => {
+                console.log(`Маркер №${index} потерян, но видео продолжает воспроизведение`);
+            });
         });
-    </script>
+
+        document.body.addEventListener('click', () => {
+            const allVideos = document.querySelectorAll('video');
+            allVideos.forEach(v => {
+                v.play();
+                v.pause();
+            });
+            console.log("Видео-система готова");
+        }, {once: true});
+    });
+</script>
 </body>
 </html>

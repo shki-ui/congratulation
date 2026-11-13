@@ -21,20 +21,15 @@
         
         <a-assets>
             <video id="video0" src="video0.mp4" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
-            <video id="video1" src="video1.mp4" loop="true" crossorigin="anonymous" playsinline webkit-playsinline></video>
         </a-assets>
 
         <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        <!-- 1. ПУСТЫЕ МАРКЕРЫ-МАЯКИ -->
-        <!-- Они только ищут координаты картинки и больше ничего не делают -->
         <a-entity mindar-image-target="targetIndex: 0" id="marker0"></a-entity>
-        <a-entity mindar-image-target="targetIndex: 1" id="marker1"></a-entity>
+       
 
-        <!-- 2. НЕЗАВИСИМЫЕ ВИДЕО-ПЛОСКОСТИ -->
-        <!-- Изначально выключены (visible="false"), чтобы избежать багов с прозрачностью -->
         <a-video id="plane0" src="#video0" width="1" height="0.5625" position="0 0 0" visible="false"></a-video>
-        <a-video id="plane1" src="#video1" width="1" height="0.5625" position="0 0 0" visible="false"></a-video>
+        
 
     </a-scene>
 
@@ -42,7 +37,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             const overlay = document.getElementById('tap-overlay');
             
-            // Связываем маркеры с их видео-плоскостями
+            
             const arItems = [
                 { marker: document.querySelector('#marker0'), plane: document.querySelector('#plane0'), asset: document.querySelector('#video0'), isTracking: false, wasFound: false },
                 { marker: document.querySelector('#marker1'), plane: document.querySelector('#plane1'), asset: document.querySelector('#video1'), isTracking: false, wasFound: false }
@@ -67,20 +62,18 @@
                     item.asset.play().catch(e => console.log(e));
                 });
 
-                // Действие при потере картинки (Камера отведена)
+                
                 item.marker.addEventListener("targetLost", () => {
                     console.log(`Картинка ${index} потеряна. Видео заморожено на месте.`);
                     item.isTracking = false; 
-                    // МЫ БОЛЬШЕ НИЧЕГО НЕ ДЕЛАЕМ.
-                    // Видео продолжает играть, а благодаря остановке isTracking - зависает на месте.
+                    
                 });
             });
 
-            // 3. ГЛАВНЫЙ ЦИКЛ СИНХРОНИЗАЦИИ
-            // Этот цикл работает со скоростью экрана (60 FPS) и принудительно копирует позицию
+            
             function syncPositions() {
                 arItems.forEach(item => {
-                    // Копируем координаты только если маркер сейчас виден камере
+                    
                     if (item.isTracking && item.marker.object3D.visible) {
                         item.plane.object3D.position.copy(item.marker.object3D.position);
                         item.plane.object3D.rotation.copy(item.marker.object3D.rotation);
@@ -89,16 +82,16 @@
                 });
                 requestAnimationFrame(syncPositions);
             }
-            syncPositions(); // Запускаем цикл
+            syncPositions(); 
 
-            // 4. Кнопка стартового экрана (Разблокировка видео и звука)
+       
             if (overlay) {
                 overlay.addEventListener('click', () => {
                     arItems.forEach(item => {
                         if (item.asset) {
                             item.asset.muted = true; 
                             item.asset.play().then(() => {
-                                // Ставим на паузу до тех пор, пока не наведем камеру
+                                
                                 item.asset.pause();
                                 item.asset.currentTime = 0;
                             }).catch(e => console.log(e));
